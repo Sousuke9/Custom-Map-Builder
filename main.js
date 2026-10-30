@@ -4,6 +4,9 @@ let lastTime = 0
 let x,y,mouseDown,pos1,pos2; //x,y, are mouse pos
 let centerX=0,centerY = 0; //center
 let rects={}
+let undoStack = [];
+let redoStack = [];
+let nextRectId = 0;
 let size = 1;
 let offsetX = canvas.width/2
 let offsetY = canvas.height/2
@@ -29,8 +32,82 @@ canvas.addEventListener("mouseup", (e) => {
     pos2.y-pos1.y,
     "rgba(0,0,255,0.5)"
   );
-  rects[Object.keys(rects).length] = rect;
+  performAction({
+    type: "addRect",
+    id: nextRectId++,
+    rect: {
+      x: rect.x,
+      y: rect.y,
+      w: rect.w,
+      h: rect.h,
+      color: rect.color
+    }
+  });
 })
+
+function applyAction(action) {
+  switch (action.type) {
+    case "addRect":
+      rects[action.id] = action.rect;
+      break;
+    default:
+      throw new Error(`Unknown action type: ${action.type}`);
+  }
+}
+
+function reverseAction(action) {
+  switch (action.type) {
+    case "addRect":
+      delete rects[action.id];
+      break;
+    default:
+      throw new Error(`Unknown action type: ${action.type}`);
+  }
+}
+
+function performAction(action) {
+  applyAction(action);
+  undoStack.push(action);
+  redoStack.length = 0;
+}
+
+function undo() {
+  const action = undoStack.pop();
+  if (!action) return;
+
+  reverseAction(action);
+  redoStack.push(action);
+}
+
+function redo() {
+  const action = redoStack.pop();
+  if (!action) return;
+
+  applyAction(action);
+  undoStack.push(action);
+}
+
+document.addEventListener("keydown", (e) => {
+  const isApple = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  const modifierPressed = isApple ? e.metaKey : e.ctrlKey;
+  const target = e.target;
+  const isTyping = target instanceof HTMLElement &&
+    (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+
+  if (!modifierPressed || isTyping) return;
+
+  const key = e.key.toLowerCase();
+  if (key === "z" && e.shiftKey) {
+    e.preventDefault();
+    redo();
+  } else if (key === "z") {
+    e.preventDefault();
+    undo();
+  } else if (key === "y" && !isApple) {
+    e.preventDefault();
+    redo();
+  }
+});
 
 
 function isOnRect(rect){

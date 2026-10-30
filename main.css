@@ -1,0 +1,7 @@
+.ui-frame {
+  display: none;
+}
+
+.ui-frame.active {
+  display: block;
+}
